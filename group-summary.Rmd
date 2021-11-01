@@ -1,0 +1,126 @@
+---
+title: "Sampling assignment"
+author: "Carys Hughes, Caitlin Bergman, Lyubava Erko, and Mike Chung"
+date: "30/10/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(here)
+biodiversity = read_csv(here("./data/biodiversity.csv"))
+cover = read_csv(here("./data/data-entry-final - percent-cover.csv"))
+quadrat = read_csv(here("./data/data-entry-final - quadrat-data.csv"))
+```
+Species richness calculation:
+```{r}
+#Calculating number of unique species in each quadrat (species richness)
+quad_richness <- biodiversity %>%
+  drop_na(species) %>%
+  group_by(vertical_transect,quadrat) %>%
+  summarize(n_spp = length(unique(species)))
+```
+
+
+Shannon-Weiner index calculation:
+```{r}
+#number of individuals of each species for each quadrat
+quad_shannon <- biodiversity %>%
+  drop_na(species) %>%
+  mutate(n_scaled = n*10)%>%
+  group_by(vertical_transect,quadrat, species) %>%
+  summarize(n_per_species = sum(n_scaled))
+
+#total number of individuals for each quadrat
+quad_total_individuals <- biodiversity %>%
+  drop_na(species) %>%
+  mutate(n_scaled = n*10)%>%
+  group_by (vertical_transect, quadrat)%>%
+  summarize(n_total = sum(n_scaled))
+
+quad_shannon <- merge(quad_shannon, quad_total_individuals, all = TRUE, by = c('vertical_transect', 'quadrat'))
+
+#shannon index calculations
+quad_shannon<-quad_shannon%>%
+  mutate(P_i = n_per_species/n_total) %>%
+  mutate(Pi_lnPi = P_i*log(P_i))
+
+#Sum to find shannon index for each quadrat
+shannon_index<-quad_shannon%>%
+group_by(vertical_transect, quadrat)%>%
+summarize(H = -sum(Pi_lnPi))
+```
+
+Abundance calculations
+```{r}
+#Calculating total number of barnacles (C. dalli and B. glandula) in each quadrat
+barnacle_abundance <- biodiversity%>%
+    drop_na(species)%>%
+    mutate(n_scaled = n*10)%>%
+  filter(species == "C. dalli" | species == "B. glandula")%>%
+   group_by(vertical_transect,quadrat)%>%
+    summarize(n_barnacle = sum(n_scaled))
+
+#Calculating total number of organisms excluding barnacles in each quadrat
+abundance_data <- merge(quad_total_individuals, barnacle_abundance, all = TRUE, by = c('vertical_transect', 'quadrat')) %>%
+  mutate(n_without_barnacles = n_total-n_barnacle)
+```
+
+
+```{r}
+#Adding all data for plots to one dataframe
+merged_data <- merge(quad_richness, shannon_index, all = TRUE, by = c('vertical_transect', 'quadrat'))
+merged_data <- merge(merged_data, cover, all = TRUE, by = c('vertical_transect', 'quadrat'))
+merged_data$n_without_barnacles <- abundance_data$n_without_barnacles
+merged_data$side <- quadrat$side
+```
+
+Plots of data:
+```{r}
+#plot of species richness vs. barnacle cover
+ggplot(data = merged_data, aes(x = per_barnacle, y = n_spp)) +
+  geom_point() +
+  geom_smooth(method = "lm",fill = "darkorchid2", colour = "darkorchid2")+
+  xlab("Barnacle Cover (%)") +
+  ylab("Species Richness")+
+  theme_classic() 
+ggsave(here("./images/richness_barnacleCover.png"))
+  
+#plot of diversity vs. barnacle cover
+ggplot(data = merged_data, aes(x = per_barnacle, y = H)) +
+  geom_point() +
+  geom_smooth(method = "lm",fill = "red2", colour = "red2")+
+  xlab("Barnacle Cover (%)") +
+  ylab("Shannon-Weiner diversity index")+
+  theme_classic()
+ggsave(here("./images/diversity_barnacleCover.png"))
+
+
+#plot of organism abundance (excluding barnacles) vs barnacle cover
+ggplot(data = merged_data, aes(x = per_barnacle, y = n_without_barnacles)) +
+  geom_point() +
+  geom_smooth(method = "lm", fill = "skyblue2", colour = "skyblue2") +
+  xlab("Barnacle Cover (%)") +
+  ylab("Abundance") +
+  theme_classic()
+ggsave(here("./images/abundance_barnacleCover.png"))
+```
+```{r}
+#Models for effect of percent cover on richness, diversity, and abundance  
+barnacle_richness_mod <- lm(n_spp~per_barnacle, data = merged_data)
+summary(barnacle_richness_mod)
+
+barnacle_diversity_mod <- lm(H~per_barnacle, data = merged_data)
+summary(barnacle_diversity_mod)
+
+barnacle_abundance_mod <- lm(n_without_barnacles~per_barnacle, data = merged_data)
+summary(barnacle_abundance_mod)
+
+```
+
+Table of statistical data:
+
