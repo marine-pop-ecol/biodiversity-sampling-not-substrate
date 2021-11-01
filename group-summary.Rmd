@@ -1,23 +1,33 @@
 ---
-title: "Sampling assignment"
+title: "Effect of barnacle cover on biodiversity"
 author: "Carys Hughes, Caitlin Bergman, Lyubava Erko, and Mike Chung"
 date: "30/10/2021"
 output: pdf_document
 ---
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-```{r}
+```{r, echo = FALSE, warning=FALSE, results = FALSE, message = FALSE}
 library(tidyverse)
 library(here)
 biodiversity = read_csv(here("./data/biodiversity.csv"))
 cover = read_csv(here("./data/data-entry-final - percent-cover.csv"))
 quadrat = read_csv(here("./data/data-entry-final - quadrat-data.csv"))
 ```
-Species richness calculation:
-```{r}
+
+## Hypothesis and Question
+
+**Question**: How does percent barnacle cover affect species richness, diversity, and abundance in the intertidal?
+
+**Hypothesis**: Species richness, diversity, and abundance will increase with increasing percent barnacle cover due to an increase in surface area and habitat.
+
+## Data collection
+
+Surveys of species abundance, richness, and percent cover of substrate types (including barnacle cover) were collected on October 26, 2021 at Scott’s Bay along transects lines set on exposed and sheltered shore environments. Six transect lines were surveyed, with three to four 0.5 x 0.5m quadrats along each transect. 
+
+## Data analysis
+Species richness, total abundance of organisms (excluding barnacles), and the Shannon-Weiner diversity index were calculated for each quadrat, with data from transect 5 omitted due to the absence of barnacle abundance data. Linear models were applied to test if species richness changes significantly with percent barnacle cover, if species diversity changes significantly with barnacle cover, and if organism abundance (excluding barnacles) changes significantly with barnacle cover.
+
+
+```{r, echo = FALSE, warning=FALSE, results = FALSE, message = FALSE}
+
 #Calculating number of unique species in each quadrat (species richness)
 quad_richness <- biodiversity %>%
   drop_na(species) %>%
@@ -26,8 +36,9 @@ quad_richness <- biodiversity %>%
 ```
 
 
-Shannon-Weiner index calculation:
-```{r}
+
+```{r, echo = FALSE, warning=FALSE, results = FALSE, message = FALSE}
+
 #number of individuals of each species for each quadrat
 quad_shannon <- biodiversity %>%
   drop_na(species) %>%
@@ -55,8 +66,7 @@ group_by(vertical_transect, quadrat)%>%
 summarize(H = -sum(Pi_lnPi))
 ```
 
-Abundance calculations
-```{r}
+```{r, echo = FALSE, warning=FALSE, results = FALSE, message = FALSE}
 #Calculating total number of barnacles (C. dalli and B. glandula) in each quadrat
 barnacle_abundance <- biodiversity%>%
     drop_na(species)%>%
@@ -71,7 +81,7 @@ abundance_data <- merge(quad_total_individuals, barnacle_abundance, all = TRUE, 
 ```
 
 
-```{r}
+```{r, echo = FALSE, warning=FALSE, results = FALSE, message = FALSE}
 #Adding all data for plots to one dataframe
 merged_data <- merge(quad_richness, shannon_index, all = TRUE, by = c('vertical_transect', 'quadrat'))
 merged_data <- merge(merged_data, cover, all = TRUE, by = c('vertical_transect', 'quadrat'))
@@ -79,8 +89,12 @@ merged_data$n_without_barnacles <- abundance_data$n_without_barnacles
 merged_data$side <- quadrat$side
 ```
 
-Plots of data:
-```{r}
+## Results and conclusions
+
+Our linear model of species richness vs. barnacle cover (Figure 1) and species diversity vs barnacle cover (Figure 2) showed no correlation (p = 0.4051 and p=0.21 respectively), while organism abundance (excluding barnacles) vs. barnacle cover (Figure 3) showed a positive correlation of the two variables (p = 0.0179). Therefore, we fail to reject the hypothesis that species richness and diversity increases with increasing barnacle cover. However, we lend support to the hypothesis that organism abundance (excluding barnacles) increases with increasing barnacle cover due to increased habitat surface area.
+
+```{r, echo = FALSE, warning = FALSE, fig.cap= "Species richness in intertidal habitats with varying levels of barnacle cover. Data was collected at Scott's Bay, BC.", message = FALSE, out.width = "70%", out.height = "70%"}
+
 #plot of species richness vs. barnacle cover
 ggplot(data = merged_data, aes(x = per_barnacle, y = n_spp)) +
   geom_point() +
@@ -88,8 +102,10 @@ ggplot(data = merged_data, aes(x = per_barnacle, y = n_spp)) +
   xlab("Barnacle Cover (%)") +
   ylab("Species Richness")+
   theme_classic() 
-ggsave(here("./images/richness_barnacleCover.png"))
-  
+```
+
+```{r, echo = FALSE, warning = FALSE, fig.cap= "Shannon-Weiner diversity index of intertidal habitats with varying levels of barnacle cover. Data was collected at Scott's Bay, BC.", message = FALSE, out.width = "70%", out.height = "70%"}
+
 #plot of diversity vs. barnacle cover
 ggplot(data = merged_data, aes(x = per_barnacle, y = H)) +
   geom_point() +
@@ -98,8 +114,10 @@ ggplot(data = merged_data, aes(x = per_barnacle, y = H)) +
   ylab("Shannon-Weiner diversity index")+
   theme_classic()
 ggsave(here("./images/diversity_barnacleCover.png"))
+```
 
 
+```{r, echo = FALSE, warning = FALSE, fig.cap= "Abundance of organisms (excluding barnacles) in intertidal habitats with varying levels of barnacle cover. Data was collected at Scott's Bay, BC.", message = FALSE, out.width = "70%", out.height = "70%"}
 #plot of organism abundance (excluding barnacles) vs barnacle cover
 ggplot(data = merged_data, aes(x = per_barnacle, y = n_without_barnacles)) +
   geom_point() +
@@ -109,7 +127,9 @@ ggplot(data = merged_data, aes(x = per_barnacle, y = n_without_barnacles)) +
   theme_classic()
 ggsave(here("./images/abundance_barnacleCover.png"))
 ```
-```{r}
+
+
+```{r, echo = FALSE, warning=FALSE, results = FALSE, message = FALSE}
 #Models for effect of percent cover on richness, diversity, and abundance  
 barnacle_richness_mod <- lm(n_spp~per_barnacle, data = merged_data)
 summary(barnacle_richness_mod)
@@ -119,8 +139,6 @@ summary(barnacle_diversity_mod)
 
 barnacle_abundance_mod <- lm(n_without_barnacles~per_barnacle, data = merged_data)
 summary(barnacle_abundance_mod)
-
 ```
 
-Table of statistical data:
 
